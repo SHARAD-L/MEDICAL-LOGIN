@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>Login Page</title>
+    <style>
+        #error-message {
+            display: none;
+            color: #fff;
+            background-color: red;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="right-container">
+            <h1>Login Page</h1>
+            <br>
+
+            <div id="error-message"></div>
+
+            <form id="login-form" autocomplete="off">
+                <div class="input-field">
+                    <label for="username">Username</label>
+                    <input type="text" id="user-id" name="user_id" placeholder="Enter Username" required>
+                </div>
+                <div class="input-field">
+                    <label for="password">Password</label>
+                    <input type="password" id="user-pass" name="user_pass" placeholder="Enter Password" required>
+                </div>
+                <div class="fingerprint-auth" style="display: flex;width: 100%; margin-top: 15px;">
+                    <label id="auth" style="margin-right: 10px;">Authenticate with Fingerprint:</label>
+                    <button type="button" id="finger-btn" onclick="authenticateFingerprint()">Scan Fingerprint</button>
+                </div>
+                <input type="hidden" id="fingerprint-data" name="fingerprint">
+                <br>
+                <button type="submit" style="margin-top: 20px;">Login</button>
+            </form>
+        </div>
+        <div class="left-container">
+            <img src="./Images/Login-image.webp" alt="wearables" style="max-width: 100%;">
+        </div>
+    </div>
+
+    <script>
+        // Function to initiate WebAuthn API for fingerprint scanning
+        async function authenticateFingerprint() {
+            try {
+                const publicKey = {
+                    challenge: new Uint8Array(16), // Example challenge data; ideally generated from the server
+                    rp: { name: "Medical Login System" },
+                    user: {
+                        id: new Uint8Array([1, 2, 3, 4]), // Unique user ID; fetched from the server
+                        name: document.getElementById('user-id').value,
+                        displayName: document.getElementById('user-id').value
+                    },
+                    pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+                    authenticatorSelection: { authenticatorAttachment: "platform" },
+                    timeout: 60000,
+                    attestation: "none"
+                };
+
+                const credential = await navigator.credentials.create({ publicKey });
+
+                // Convert the authenticator response to a hex string (simulating fingerprint data)
+                const fingerprintHex = Array.from(new Uint8Array(credential.response.attestationObject))
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join('');
+
+                document.getElementById('fingerprint-data').value = fingerprintHex;
+                alert('Fingerprint scanned successfully.');
+
+            } catch (err) {
+                alert('Fingerprint scanning failed: ' + err.message);
+            }
+        }
+
+        // Handle form submission with fetch()
+        document.getElementById('login-form').addEventListener('submit', function (e) {
+            e.preventDefault(); // Prevent the form's default submission behavior
+
+            const user_id = document.getElementById('user-id').value;
+            const user_pass = document.getElementById('user-pass').value;
+            const fingerprint = document.getElementById('fingerprint-data').value;
+
+            if (!fingerprint) {
+                document.getElementById('error-message').innerText = 'Please scan your fingerprint before logging in!';
+                document.getElementById('error-message').style.display = 'block';
+                return;
+            }
+
+            fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ user_id, user_pass, fingerprint })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    document.getElementById('error-message').innerText = data.message;
+                    document.getElementById('error-message').style.display = 'block';
+                } else {
+                    window.location.href = '/dashboard'; // Redirect to dashboard if login is successful
+                }
+            })
+            .catch(error => {
+                document.getElementById('error-message').innerText = 'An error occurred. Please try again.';
+                document.getElementById('error-message').style.display = 'block';
+            });
+        });
+    </script>
+</body>
+</html>
